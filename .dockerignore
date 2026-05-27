@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.local
+auth_info_baileys
+npm-debug.log
+Dockerfile
+.dockerignore
+teiwah_architecture_checkpoint.md
+README.md
