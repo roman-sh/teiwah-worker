@@ -166,14 +166,13 @@ export class WhatsappService implements OnModuleInit {
          const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode
          const shouldReconnect = statusCode !== DisconnectReason.loggedOut
 
-         // Prevent red flash on successful QR scan restart
-         const isAuthenticating =
-            statusCode === DisconnectReason.restartRequired ||
-            (this.state$.value.status === 'waiting_qr' && shouldReconnect)
+         // Only show pairing after a real post-scan restart — not every reconnect while QR is showing
+         const isAuthenticating = statusCode === DisconnectReason.restartRequired
 
          this.state$.next({
             ...this.state$.value,
-            status: isAuthenticating ? 'authenticating' : 'disconnected'
+            status: isAuthenticating ? 'authenticating' : 'disconnected',
+            ...(isAuthenticating ? { qr: null } : {})
          })
 
          log.warn({ statusCode, shouldReconnect }, 'Connection closed')
