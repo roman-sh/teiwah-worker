@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
-import { PHONE_INSERT_URL } from '../constants.js'
+import { AUTH_PATH, PHONE_INSERT_URL } from '../constants.js'
 import { InboundWebhookService } from './inbound-webhook.service.js'
 import makeWASocket, {
    Browsers,
@@ -87,11 +87,10 @@ export class WhatsappService implements OnModuleInit {
     *
     * IMPORTANT:
     * - socket is disposable
-    * - auth_info_baileys is durable
+    * - auth state (AUTH_PATH) is durable across in-place pod restarts
     */
    private async createSocket() {
-      const { state, saveCreds } =
-         await useMultiFileAuthState('auth_info_baileys')
+      const { state, saveCreds } = await useMultiFileAuthState(AUTH_PATH)
 
       const sock = makeWASocket({
          auth: state,
@@ -180,7 +179,7 @@ export class WhatsappService implements OnModuleInit {
          if (shouldReconnect) {
             void this.createSocket()
          } else {
-            log.warn('Logged out. Delete auth_info_baileys and scan again.')
+            log.warn(`Logged out. Clear ${AUTH_PATH} and scan again.`)
          }
       }
    }

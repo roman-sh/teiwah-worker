@@ -28,9 +28,6 @@ RUN npm ci --omit=dev
 # Copy the compiled code from the builder stage
 COPY --from=builder /app/dist ./dist
 
-# Create the directory for Baileys auth state so it exists before mounting
-RUN mkdir -p /app/auth_info_baileys
-
 # Expose the port the app runs on
 EXPOSE 5335
 

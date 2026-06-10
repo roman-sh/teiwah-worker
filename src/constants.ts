@@ -7,6 +7,8 @@
  *   CONTROL_APP_BASE_URL — how this pod reaches teiwah-control
  *                          (local k3d: http://host.docker.internal:4007)
  *   SESSION_ID           — this pod's session id (e.g. brave-tiger-a1b2)
+ *   SESSION_STORAGE_PATH — root of the per-session durable storage volume
+ *                          (mounted by k8s.service.ts, e.g. /data/teiwah)
  *
  * Values are validated once at boot via env.schema.ts → global `env`.
  * URLs below are fully resolved from `env` — no substitution at call sites.
@@ -38,3 +40,17 @@ export const PHONE_INSERT_URL
  */
 export const SESSION_CONFIG_URL
    = `${env.CONTROL_APP_BASE_URL}/sessions/${env.SESSION_ID}`
+
+// -----------------------------------------------------------------------------
+// SESSION STORAGE PATHS
+// -----------------------------------------------------------------------------
+
+/**
+ * Baileys multi-file auth state directory.
+ *
+ * Lives under the per-session durable volume that teiwah-control mounts at
+ * SESSION_STORAGE_PATH. Control owns the mount location; the worker owns the
+ * subdirectory layout. Durable across in-place pod restarts (same node); a node
+ * move/loss drops it and the session must re-scan the QR.
+ */
+export const AUTH_PATH = `${env.SESSION_STORAGE_PATH}/auth`
