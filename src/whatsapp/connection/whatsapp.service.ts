@@ -1,12 +1,18 @@
 import { Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
-import { AUTH_PATH, PHONE_INSERT_URL } from '../../constants.js'
+import { AUTH_PATH } from '../../constants.js'
+import { ControlAppClient } from '../control/control-app.client.js'
 import { InboundWebhookService } from '../inbound/inbound-webhook.service.js'
+import { MessageStore } from '../store/message-store.service.js'
 import makeWASocket, {
    Browsers,
    DisconnectReason,
    WASocket,
    useMultiFileAuthState
 } from '@whiskeysockets/baileys'
+// Default import: qrcode-terminal is CommonJS, so its `generate` lives on the
+// default export (module.exports), not as a namespace member. `import * as`
+// leaves generate under `.default` and breaks at runtime.
+import qrcodeTerminal from 'qrcode-terminal'
 import pino from 'pino'
 import { Boom } from '@hapi/boom'
 import { BehaviorSubject } from 'rxjs'
@@ -55,7 +61,11 @@ export class WhatsappService implements OnModuleInit {
       return this.sock
    }
 
-   constructor(private readonly inboundWebhookService: InboundWebhookService) {
+   constructor(
+      private readonly inboundWebhookService: InboundWebhookService,
+      private readonly controlAppClient: ControlAppClient,
+      private readonly messageStore: MessageStore
+   ) {
       // Automatically log every state change with the global logger
       this.state$.subscribe((state) => {
          log.info(
@@ -97,8 +107,8 @@ export class WhatsappService implements OnModuleInit {
          logger: pino({
             level: 'silent'
          }),
-         printQRInTerminal: false,
-         browser: Browsers.macOS('Desktop'),
+         // Second arg is the label shown in WhatsApp → Linked Devices.
+         browser: Browsers.macOS('Teiwah'),
          syncFullHistory: false
       })
 
@@ -119,9 +129,12 @@ export class WhatsappService implements OnModuleInit {
          void this.handleConnectionUpdate(update)
       })
 
-      // Incoming messages → forward to user's webhook via InboundWebhookService
+      // Incoming messages: cache them (so they can later be quoted by id) and
+      // forward to the customer's webhook. Caching runs for every upsert, even
+      // when no webhook is configured, so quoting works independently.
       sock.ev.on('messages.upsert', (update) => {
-         void this.inboundWebhookService.forwardMessagesUpsert(update)
+         for (const msg of update.messages) this.messageStore.remember(msg)
+         void this.inboundWebhookService.processInboundMessages(update)
       })
    }
 
@@ -144,6 +157,14 @@ export class WhatsappService implements OnModuleInit {
             qr: qr,
             phoneNumber: null
          })
+
+         // Local-dev only: render the QR in the terminal so it can be scanned
+         // without the dashboard. Off in production — there the QR is delivered
+         // via the dashboard SSE, and printing it would dump a large
+         // non-structured block into the logs on each rotation.
+         if (env.NODE_ENV === 'development') {
+            qrcodeTerminal.generate(qr, { small: true })
+         }
       }
 
       if (connection === 'open') {
@@ -158,7 +179,7 @@ export class WhatsappService implements OnModuleInit {
          })
 
          // Insert phone number into control app DB (dashboard reads it from GET /sessions)
-         void this.insertPhoneNumberToControlApp(phoneNumber)
+         void this.controlAppClient.insertPhoneNumber(phoneNumber)
       }
 
       if (connection === 'close') {
@@ -182,29 +203,5 @@ export class WhatsappService implements OnModuleInit {
             log.warn(`Logged out. Clear ${AUTH_PATH} and scan again.`)
          }
       }
-   }
-
-   /* -------------------------------------------------------------------------- */
-   /* Control app                                                                */
-   /* -------------------------------------------------------------------------- */
-
-   /**
-    * Insert the connected phone number into Supabase via teiwah-control.
-    * Called once when Baileys fires connection === 'open'.
-    *
-    * Env vars SESSION_ID and CONTROL_APP_BASE_URL are injected into the pod
-    * by teiwah-control/k8s.service.ts at provision time.
-    */
-   private async insertPhoneNumberToControlApp(
-      phoneNumber: string
-   ): Promise<void> {
-      // PHONE_INSERT_URL is fully resolved in constants.ts from global env.
-      await fetch(PHONE_INSERT_URL, {
-         method: 'PATCH',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ phoneNumber })
-      })
-
-      log.info({ phoneNumber }, 'Inserted phone number into control app DB')
    }
 }

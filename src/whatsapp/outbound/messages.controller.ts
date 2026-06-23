@@ -50,16 +50,18 @@ export class MessagesController {
    @Post('messages')
    /** `@Body() body: OutboundMessageDto` — type here tells ValidationPipe which DTO to use. */
    async sendMessage(@Body() body: OutboundMessageDto) {
+      let id: string | undefined
       try {
-         await this.outboundMessagesService.sendMessage(body)
+         id = await this.outboundMessagesService.sendMessage(body)
       } catch (error) {
-         // Let intentional HTTP errors through with their status (e.g. 501 media
-         // not implemented, 503 session not connected); only wrap unexpected ones.
+         // Let intentional HTTP errors through with their status (e.g. 503
+         // session not connected); only wrap unexpected ones.
          if (error instanceof HttpException) throw error
          log.error(error, 'Failed to send WhatsApp message')
          throw new ServiceUnavailableException('Failed to send message')
       }
 
-      return { success: true }
+      // `id` is the native WhatsApp id — pass it back as `quoteMessageId` to reply.
+      return { success: true, id }
    }
 }

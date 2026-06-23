@@ -89,4 +89,17 @@ export class OutboundMessageDto {
    @ValidateNested()
    @Type(() => MediaDto)
    media?: MediaDto
+
+   /**
+    * Optional: native id of a message to quote (an inbound webhook `id`, or an
+    * earlier message in this chat). Turns the send into a WhatsApp reply.
+    *
+    * Best-effort: we resolve it against a recent-message cache (see MessageStore).
+    * An unknown/too-old id is not an error — the message just sends unquoted.
+    */
+   @IsOptional()
+   @Transform(trim)
+   @IsString()
+   @IsNotEmpty()
+   quoteMessageId?: string
 }

@@ -1,0 +1,126 @@
+# nestwaileys worker — manual test harness (VS Code "REST Client" extension)
+#
+# These hit the worker DIRECTLY (standalone local run), bypassing Zuplo/Traefik.
+# The worker mounts the routes at the root, so it's POST /messages — NOT the
+# gateway path /sessions/:id/messages (that prefix is added/stripped by Zuplo).
+#
+# Local loop:
+#   1. node mock-control.mjs            (or: npm run mock:control)
+#   2. cp .env.example .env && edit it  (PORT, SESSION_ID, CONTROL_APP_BASE_URL=http://localhost:4099)
+#   3. npm run start:local              (scan the QR printed in the terminal)
+#   4. click "Send Request" above any block below
+#
+# Set @chatId to your own number to message yourself while testing.
+
+@host = http://localhost:5335
+@chatId = 972500000000
+
+### Send text
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "{{chatId}}",
+  "text": "hello from requests.http"
+}
+
+### Send text — full JID form
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "{{chatId}}@s.whatsapp.net",
+  "text": "hello via JID"
+}
+
+### Send image (mimeType/filename auto-derived when omitted)
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "{{chatId}}",
+  "media": {
+    "type": "image",
+    "mediaUrl": "https://picsum.photos/400.jpg",
+    "caption": "a picture"
+  }
+}
+
+### Send voice note / ptt (mimetype defaults to opus)
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "{{chatId}}",
+  "media": {
+    "type": "ptt",
+    "mediaUrl": "https://example.com/voice.ogg"
+  }
+}
+
+### Send document (filename + mimeType derived from the URL)
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "{{chatId}}",
+  "media": {
+    "type": "document",
+    "mediaUrl": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+  }
+}
+
+### Send text as a quoted reply
+# Set @quoteMessageId to an `id` from an inbound webhook (or a prior send).
+# Unknown/too-old ids are not an error — the message just sends unquoted.
+@quoteMessageId = 3EB0XXXXXXXXXXXXXXXX
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "{{chatId}}",
+  "text": "replying to your message",
+  "quoteMessageId": "{{quoteMessageId}}"
+}
+
+### Unfetchable media URL (expect 422)
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "{{chatId}}",
+  "media": {
+    "type": "image",
+    "mediaUrl": "https://example.com/this-does-not-exist-404.jpg"
+  }
+}
+
+### Invalid — neither text nor media (expect 400)
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "{{chatId}}"
+}
+
+### Invalid — both text and media (expect 400)
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "{{chatId}}",
+  "text": "hi",
+  "media": { "type": "image", "mediaUrl": "https://picsum.photos/400" }
+}
+
+### Invalid — malformed chatId (expect 400)
+POST {{host}}/messages
+Content-Type: application/json
+
+{
+  "chatId": "not-a-number",
+  "text": "hi"
+}
+
+### Media download (NOT yet implemented — placeholder for milestone #3)
+# GET {{host}}/media/REPLACE_WITH_MEDIA_ID

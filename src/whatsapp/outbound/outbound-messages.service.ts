@@ -1,10 +1,13 @@
 import {
    BadRequestException,
    Injectable,
-   NotImplementedException
+   UnprocessableEntityException
 } from '@nestjs/common'
+import type { WAMessage } from '@whiskeysockets/baileys'
 import { WhatsappService } from '../connection/whatsapp.service.js'
+import { MessageStore } from '../store/message-store.service.js'
 import { chatIdToJid } from './chat-id.util.js'
+import { buildMediaContent, isMediaUrlReachable } from './media-content.util.js'
 import { OutboundMessageDto } from './outbound-message.dto.js'
 
 /**
@@ -15,27 +18,65 @@ import { OutboundMessageDto } from './outbound-message.dto.js'
  */
 @Injectable()
 export class OutboundMessagesService {
-   constructor(private readonly whatsappService: WhatsappService) {}
+   constructor(
+      private readonly whatsappService: WhatsappService,
+      private readonly messageStore: MessageStore
+   ) {}
 
-   async sendMessage({ chatId, text, media }: OutboundMessageDto): Promise<void> {
+   /** Returns the native id of the sent message (for dedup / quoting it later). */
+   async sendMessage({
+      chatId,
+      text,
+      media,
+      quoteMessageId
+   }: OutboundMessageDto): Promise<string | undefined> {
       const jid = chatIdToJid(chatId)
       const socket = this.whatsappService.connectedSocket
 
-      switch (true) {
-         case !!media:
-            // TODO(M3): map media.type -> Baileys send payload
-            throw new NotImplementedException('Sending media is not yet implemented')
+      // Resolve the quoted message (best-effort): an unknown/evicted id yields
+      // undefined, which Baileys treats as "no quote" — so it sends unquoted.
+      const quoted = quoteMessageId
+         ? this.messageStore.get(quoteMessageId)
+         : undefined
 
-         case !!text:
-            await socket.sendMessage(jid, { text })
-            log.info({ chatId: jid }, 'Sent WhatsApp text message')
-            break
-
-         // case !!location:
-         //    throw new NotImplementedException('Sending location is not yet implemented')
-
-         default:
-            throw new BadRequestException('Exactly one of text or media must be provided')
+      // if/else (not switch) so `media`/`text` narrow to their concrete types —
+      // buildMediaContent requires a defined MediaDto, which a switch(true) case
+      // does not narrow. Exactly-one is guaranteed by the DTO (@ExactlyOneOf).
+      let sent: WAMessage | undefined
+      if (media) {
+         const content = await buildMediaContent(media)
+         try {
+            sent = await socket.sendMessage(jid, content, { quoted })
+         } catch (error) {
+            // Baileys' send errors are opaque. The most common client-side cause
+            // for media is an unfetchable mediaUrl, so re-check it independently
+            // (rather than parse Baileys internals) and surface an actionable 422.
+            // If the URL is fine, it was something else — rethrow as-is.
+            if (!(await isMediaUrlReachable(media.mediaUrl))) {
+               throw new UnprocessableEntityException(
+                  `media.mediaUrl could not be fetched: ${media.mediaUrl}`
+               )
+            }
+            throw error
+         }
+         log.info(
+            { chatId: jid, mediaType: media.type, quoted: quoted != null },
+            'Sent WhatsApp media message'
+         )
+      } else if (text) {
+         sent = await socket.sendMessage(jid, { text }, { quoted })
+         log.info(
+            { chatId: jid, quoted: quoted != null },
+            'Sent WhatsApp text message'
+         )
+      } else {
+         throw new BadRequestException('Exactly one of text or media must be provided')
       }
+
+      // Cache our own send so the customer can quote it later by the returned id.
+      // messages.upsert for fromMe isn't a reliable/timely source, so remember
+      // the send result directly.
+      if (sent) this.messageStore.remember(sent)
+      return sent?.key?.id ?? undefined
    }
 }
