@@ -1,13 +1,14 @@
 import {
    Body,
    Controller,
+   HttpException,
    Post,
    ServiceUnavailableException,
    UsePipes,
    ValidationPipe
 } from '@nestjs/common'
 import { OutboundMessagesService } from './outbound-messages.service.js'
-import { SendMessageDto } from './send-message.dto.js'
+import { OutboundMessageDto } from './outbound-message.dto.js'
 
 /**
  * Outbound WhatsApp messages — sent directly via Baileys (no control app).
@@ -19,13 +20,13 @@ import { SendMessageDto } from './send-message.dto.js'
  *
  * Local URL (via Traefik):
  *   POST http://localhost:8080/sessions/:sessionId/messages
- *   Body: { "to": "972...@s.whatsapp.net", "text": "hello" }
+ *   Body: { "chatId": "972...@s.whatsapp.net", "text": "hello" }
  *
  * Production (via Zuplo):
  *   POST https://api.teiwah.com/sessions/:sessionId/messages
  *   Authorization: Bearer <session-api-key>
  *
- * Use the inbound webhook `from` field as `to` when replying in 1:1 chats.
+ * Use the inbound webhook `chatId` field as `chatId` when replying in 1:1 chats.
  *
  * ---
  * Nest validation (pipe + DTO are separate layers):
@@ -34,7 +35,7 @@ import { SendMessageDto } from './send-message.dto.js'
  *     transform: true  → plain JSON becomes a class instance; @Transform decorators run
  *     whitelist: true → strip extra JSON fields not declared on the DTO
  *
- * - SendMessageDto (on each @Body() param) = WHAT to validate for that specific route
+ * - OutboundMessageDto (on each @Body() param) = WHAT to validate for that specific route
  *     Nest picks the DTO from the handler signature — add more routes with different
  *     DTOs later; same pipe applies to all of them.
  *
@@ -47,12 +48,14 @@ export class MessagesController {
    constructor(private readonly outboundMessagesService: OutboundMessagesService) {}
 
    @Post('messages')
-   /** `@Body() body: SendMessageDto` — type here tells ValidationPipe which DTO to use. */
-   async sendMessage(@Body() body: SendMessageDto) {
+   /** `@Body() body: OutboundMessageDto` — type here tells ValidationPipe which DTO to use. */
+   async sendMessage(@Body() body: OutboundMessageDto) {
       try {
-         await this.outboundMessagesService.sendTextMessage(body)
+         await this.outboundMessagesService.sendMessage(body)
       } catch (error) {
-         if (error instanceof ServiceUnavailableException) throw error
+         // Let intentional HTTP errors through with their status (e.g. 501 media
+         // not implemented, 503 session not connected); only wrap unexpected ones.
+         if (error instanceof HttpException) throw error
          log.error(error, 'Failed to send WhatsApp message')
          throw new ServiceUnavailableException('Failed to send message')
       }

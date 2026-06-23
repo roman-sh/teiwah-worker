@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
-import { AUTH_PATH, PHONE_INSERT_URL } from '../constants.js'
-import { InboundWebhookService } from './inbound-webhook.service.js'
+import { AUTH_PATH, PHONE_INSERT_URL } from '../../constants.js'
+import { InboundWebhookService } from '../inbound/inbound-webhook.service.js'
 import makeWASocket, {
    Browsers,
    DisconnectReason,

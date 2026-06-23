@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { SESSION_CONFIG_URL } from '../constants.js'
+import { SESSION_CONFIG_URL } from '../../constants.js'
 
 /**
  * Forwards inbound WhatsApp messages to the user's configured webhook URL.
