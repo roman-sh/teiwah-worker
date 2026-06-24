@@ -8,7 +8,7 @@ import { InboundWebhookService } from './inbound/inbound-webhook.service.js'
 import { MessagesController } from './outbound/messages.controller.js'
 import { OutboundMessagesService } from './outbound/outbound-messages.service.js'
 import { MessageStore } from './store/message-store.service.js'
-import { MESSAGE_DB_PATH } from '../constants.js'
+import { MESSAGE_DB_PATH } from '../config.js'
 
 @Module({
    controllers: [EventsController, MessagesController, ChatActionsController],
@@ -19,7 +19,7 @@ import { MESSAGE_DB_PATH } from '../constants.js'
       OutboundMessagesService,
       ChatActionsService,
       // Factory so the portable store receives its per-session db path here,
-      // keeping it free of app globals (env/constants) for later extraction.
+      // keeping it free of app globals (env/config) for later extraction.
       {
          provide: MessageStore,
          useFactory: () => new MessageStore({ dbPath: MESSAGE_DB_PATH })

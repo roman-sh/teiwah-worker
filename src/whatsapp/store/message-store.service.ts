@@ -15,7 +15,7 @@ const DEFAULT_REAP_INTERVAL_MS = 1000 * 60 * 10 // 10 min
 
 /**
  * All configuration the store needs, passed in by the composition root — the
- * store reads no app globals (env/constants), so it stays portable enough to
+ * store reads no app globals (env/config), so it stays portable enough to
  * lift into a standalone package: its only deps are node:sqlite and Baileys'
  * proto codec.
  */
@@ -115,8 +115,8 @@ export class MessageStore implements OnModuleDestroy {
       this.reapTimer.unref() // the reaper must never keep the process alive
    }
 
-   /** Remember a message by its native id. No-op when the message carries no id. */
-   remember(msg: WAMessage): void {
+   /** Store a message by its native id. No-op when the message carries no id. */
+   put(msg: WAMessage): void {
       const id = msg.key.id
       if (!id) return
       const data = proto.WebMessageInfo.encode(msg).finish()
@@ -134,7 +134,7 @@ export class MessageStore implements OnModuleDestroy {
          this.delStmt.run(id)
          return undefined
       }
-      // We only ever store messages that had a key (see remember), so the
+      // We only ever store messages that had a key (see put), so the
       // decoded proto's nominally-optional key is always present here.
       return proto.WebMessageInfo.decode(row.data) as WAMessage
    }

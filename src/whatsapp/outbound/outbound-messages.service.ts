@@ -91,7 +91,7 @@ export class OutboundMessagesService {
       // Cache our own send so the customer can quote it later by the returned id.
       // messages.upsert for fromMe isn't a reliable/timely source, so remember
       // the send result directly.
-      if (sent) this.messageStore.remember(sent)
+      if (sent) this.messageStore.put(sent)
       return sent?.key?.id ?? undefined
    }
 }

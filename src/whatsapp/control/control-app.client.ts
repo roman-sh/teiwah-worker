@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { PHONE_INSERT_URL, SESSION_CONFIG_URL } from '../../constants.js'
+import { PHONE_INSERT_URL, SESSION_CONFIG_URL } from '../../config.js'
 
 /**
  * HTTP client for teiwah-control — the single boundary to the control app.
@@ -9,7 +9,7 @@ import { PHONE_INSERT_URL, SESSION_CONFIG_URL } from '../../constants.js'
  * hand-rolled across the connection and inbound services.
  *
  * SESSION_ID and CONTROL_APP_BASE_URL are injected into the pod by
- * teiwah-control/k8s.service.ts; the URLs are resolved in constants.ts.
+ * teiwah-control/k8s.service.ts; the URLs are resolved in config.ts.
  */
 @Injectable()
 export class ControlAppClient {

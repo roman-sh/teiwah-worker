@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
-import { AUTH_PATH } from '../../constants.js'
+import { AUTH_PATH } from '../../config.js'
 import { ControlAppClient } from '../control/control-app.client.js'
 import { InboundWebhookService } from '../inbound/inbound-webhook.service.js'
 import { MessageStore } from '../store/message-store.service.js'
@@ -133,7 +133,7 @@ export class WhatsappService implements OnModuleInit {
       // forward to the customer's webhook. Caching runs for every upsert, even
       // when no webhook is configured, so quoting works independently.
       sock.ev.on('messages.upsert', (update) => {
-         for (const msg of update.messages) this.messageStore.remember(msg)
+         for (const msg of update.messages) this.messageStore.put(msg)
          void this.inboundWebhookService.processInboundMessages(update)
       })
 
