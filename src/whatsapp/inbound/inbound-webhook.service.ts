@@ -43,7 +43,9 @@ export class InboundWebhookService {
                chatId: webhookMessage.chatId,
                participant: webhookMessage.participant,
                phoneNumber: webhookMessage.contact.phoneNumber,
-               // Never log message content (privacy). Length only, when it's a text message.
+               // Never log message content (privacy): the media type for media,
+               // else the text length for a text message.
+               mediaType: webhookMessage.media?.type,
                textLength: webhookMessage.text?.length
             },
             'Received message'
