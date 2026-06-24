@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import type { BaileysEventMap, WAMessage } from '@whiskeysockets/baileys'
+import { MEDIA_BASE_URL } from '../../config.js'
 import { ControlAppClient } from '../control/control-app.client.js'
 import { toInboundMessage, type InboundMessage } from './inbound-message.adapter.js'
 
@@ -37,6 +38,11 @@ export class InboundWebhookService {
       for (const msg of messages) {
          const webhookMessage = toInboundMessage(msg)
          if (!webhookMessage) continue
+
+         // Enrich media with the customer-facing download URL (delivery concern,
+         // kept out of the pure adapter). Keyed by the native message id.
+         if (webhookMessage.media)
+            webhookMessage.media.url = `${MEDIA_BASE_URL}/${webhookMessage.id}`
 
          log.info(
             {

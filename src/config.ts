@@ -1,20 +1,8 @@
 /**
- * Control app URLs for this worker pod.
+ * Derived URLs and paths from validated env (env.schema.ts).
  *
- * Each nestwaileys pod serves exactly one WhatsApp session. At startup,
- * teiwah-control injects env vars into the pod (see k8s.service.ts):
- *
- *   CONTROL_APP_BASE_URL — how this pod reaches teiwah-control
- *                          (local k3d: http://host.docker.internal:4007)
- *   SESSION_ID           — this pod's session id (e.g. brave-tiger-a1b2)
- *   SESSION_STORAGE_PATH — root of the per-session durable storage volume
- *                          (mounted by k8s.service.ts, e.g. /data/teiwah)
- *
- * Values are validated once at boot via env.schema.ts → global `env`.
- * URLs below are fully resolved from `env` — no substitution at call sites.
- *
- * Example:
- *   http://host.docker.internal:4007/sessions/brave-tiger-a1b2/phone
+ * Where env values come from: teiwah-control/.env.example (prod/k8s) or
+ * nestwaileys/.env.example (local standalone worker).
  */
 
 // -----------------------------------------------------------------------------
@@ -40,6 +28,12 @@ export const PHONE_INSERT_URL
  */
 export const SESSION_CONFIG_URL
    = `${env.CONTROL_APP_BASE_URL}/sessions/${env.SESSION_ID}`
+
+/**
+ * Zuplo gateway base (customer-facing API). Used to build inbound media.url
+ * (`${MEDIA_BASE_URL}/${messageId}` → GET /media/:id through Zuplo).
+ */
+export const MEDIA_BASE_URL = `${env.PUBLIC_API_BASE_URL}/media`
 
 // -----------------------------------------------------------------------------
 // SESSION STORAGE PATHS

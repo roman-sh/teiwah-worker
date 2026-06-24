@@ -12,6 +12,12 @@ import type { MediaType } from '../outbound/outbound-message.dto.js'
 export interface InboundMedia {
    /** Send-shape discriminator, shared with the outbound contract. */
    type: MediaType
+   /**
+    * Teiwah download URL (`GET /media/:id`). Set by the delivery layer, not the
+    * adapter — see InboundWebhookService. Optional in the type only because the
+    * pure adapter doesn't build it; it is always present in the delivered webhook.
+    */
+   url?: string
    /** WhatsApp-provided MIME (e.g. `image/jpeg`, `audio/ogg; codecs=opus`), or null. */
    mimeType: string | null
    /** Original file name — documents only; null/absent otherwise. */
