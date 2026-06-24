@@ -16,6 +16,7 @@
       "start:local": "nest start --watch --env-file .env",
       "start:prod": "node dist/main.js",
       "mock:control": "node mock-control.mjs",
+      "mock:ingress": "node mock-ingress.mjs",
       "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix"
    },
    "dependencies": {
