@@ -9,7 +9,8 @@
       { "key": "chatId", "value": "972546313551" },
       { "key": "groupId", "value": "120363411056005624@g.us" },
       { "key": "quoteMessageId", "value": "" },
-      { "key": "participant", "value": "" }
+      { "key": "participant", "value": "" },
+      { "key": "messageId", "value": "" }
    ],
    "item": [
       {
@@ -155,6 +156,37 @@
                   },
                   "url": "{{host}}/messages",
                   "description": "No outbound `participant` field — use the inbound webhook `participant` value AS `chatId` to message that person 1:1. Get it from a group inbound log line or webhook after someone posts in the group."
+               }
+            }
+         ]
+      },
+      {
+         "name": "Chat actions",
+         "item": [
+            {
+               "name": "Typing indicator",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\"\n}"
+                  },
+                  "url": "{{host}}/typing",
+                  "description": "Shows 'typing…' in the chat. Always 'typing', no state/stop — WhatsApp clears it after ~25s or when your next message lands. Works for a group chatId too."
+               }
+            },
+            {
+               "name": "Mark read",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"messageId\": \"{{messageId}}\"\n}"
+                  },
+                  "url": "{{host}}/read",
+                  "description": "Marks a received message read (blue ticks). Set messageId from an inbound webhook `id`. Unknown/too-old id → 404; offline session → 503."
                }
             }
          ]
