@@ -1,9 +1,16 @@
 import { Injectable } from '@nestjs/common'
-import type { WAMessage } from '@whiskeysockets/baileys'
+import { proto, type WAMessage } from '@whiskeysockets/baileys'
 import { LRUCache } from 'lru-cache'
 
 /** Max messages held at once; oldest-accessed are evicted past this. */
-const MAX_ENTRIES = 5_000
+const MAX_ENTRIES = 1_000
+
+/**
+ * Hard byte ceiling regardless of count — a safety net against a pathological
+ * entry (e.g. an unusually large thumbnail). Normal entries are KB-scale, so
+ * MAX_ENTRIES binds first; this only kicks in if average size blows up.
+ */
+const MAX_BYTES = 24 * 1024 * 1024 // 24 MB
 
 /** Entry lifetime — comfortably longer than any realistic reply gap. */
 const TTL_MS = 1000 * 60 * 60 * 48 // 48h
@@ -27,12 +34,14 @@ const TTL_MS = 1000 * 60 * 60 * 48 // 48h
  * (url/directPath/mediaKey) plus a small inline jpegThumbnail — never the file
  * bytes (Baileys downloads on demand), and never our outbound `ptt` base64
  * (that's added downstream, not stored here). So entries are KB-scale even for
- * media, and MAX_ENTRIES * (worst-case thumbnail) stays well bounded.
+ * media; we still cap total bytes (MAX_BYTES) as a hard ceiling.
  */
 @Injectable()
 export class MessageStore {
    private readonly cache = new LRUCache<string, WAMessage>({
       max: MAX_ENTRIES,
+      maxSize: MAX_BYTES,
+      sizeCalculation: estimateMessageBytes,
       ttl: TTL_MS
    })
 
@@ -45,5 +54,19 @@ export class MessageStore {
    /** Resolve a previously-seen message by id, or undefined if unknown/evicted. */
    get(id: string): WAMessage | undefined {
       return this.cache.get(id)
+   }
+}
+
+/**
+ * Approximate in-cache byte size of a message — its serialized proto length,
+ * which captures the real weight (incl. the inline thumbnail). Uses Baileys'
+ * own encoder; falls back to a conservative estimate if encoding ever fails
+ * (sizeCalculation must return a positive integer).
+ */
+function estimateMessageBytes(msg: WAMessage): number {
+   try {
+      return proto.WebMessageInfo.encode(msg).finish().length || 1
+   } catch {
+      return 1024
    }
 }

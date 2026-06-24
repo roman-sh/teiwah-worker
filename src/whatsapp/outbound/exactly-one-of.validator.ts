@@ -34,6 +34,17 @@ export function ExactlyOneOf(properties: string[], options?: ValidationOptions) 
             },
             defaultMessage(args: ValidationArguments) {
                const [props] = args.constraints as [string[]]
+               const present = props.filter(
+                  (p) => (args.object as Record<string, unknown>)[p] != null
+               )
+               const quoted = props.map((p) => `\`${p}\``).join(' or ')
+
+               if (present.length === 0) {
+                  return `Message must include ${quoted}`
+               }
+               if (present.length > 1) {
+                  return `Message cannot include both ${props.map((p) => `\`${p}\``).join(' and ')}`
+               }
                return `Exactly one of ${props.join(', ')} must be provided`
             }
          }

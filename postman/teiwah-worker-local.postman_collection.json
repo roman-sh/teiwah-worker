@@ -1,0 +1,216 @@
+{
+   "info": {
+      "name": "Teiwah Worker (local)",
+      "description": "Manual tests against a locally running nestwaileys worker.\n\nHits the worker directly at POST /messages (not the Zuplo path /sessions/:id/messages).\n\nSetup:\n1. npm run mock:control\n2. npm run start:local (scan QR)\n3. Set collection variables: chatId (contact to message), groupId, quoteMessageId\n\nResponses show { success, id } — copy id into quoteMessageId for the quote test.",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+   },
+   "variable": [
+      { "key": "host", "value": "http://localhost:5335" },
+      { "key": "chatId", "value": "972546313551" },
+      { "key": "groupId", "value": "120363411056005624@g.us" },
+      { "key": "quoteMessageId", "value": "" },
+      { "key": "participant", "value": "" }
+   ],
+   "item": [
+      {
+         "name": "Outbound — 1:1",
+         "item": [
+            {
+               "name": "Send text",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"text\": \"hello from Postman\"\n}"
+                  },
+                  "url": "{{host}}/messages",
+                  "description": "Copy `id` from the response into the quoteMessageId variable."
+               }
+            },
+            {
+               "name": "Send text — full JID",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}@s.whatsapp.net\",\n  \"text\": \"hello via JID\"\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            },
+            {
+               "name": "Send image",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"image\",\n    \"mediaUrl\": \"https://picsum.photos/400.jpg\",\n    \"caption\": \"a picture\"\n  }\n}"
+                  },
+                  "url": "{{host}}/messages",
+                  "description": "mimeType/filename auto-derived when omitted."
+               }
+            },
+            {
+               "name": "Send audio",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"audio\",\n    \"mediaUrl\": \"https://download.samplelib.com/mp3/sample-3s.mp3\"\n  }\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            },
+            {
+               "name": "Send ptt (voice note)",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"ptt\",\n    \"mediaUrl\": \"https://samplefile.com/samples/download/audio/opus/opus_5s_sample_file_94KB.opus/\"\n  }\n}"
+                  },
+                  "url": "{{host}}/messages",
+                  "description": "Must be OGG/Opus. MP3 with ptt:true shows a voice-note bubble but plays silent — use type:audio for MP3 instead."
+               }
+            },
+            {
+               "name": "Send document",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"document\",\n    \"mediaUrl\": \"https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf\"\n  }\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            },
+            {
+               "name": "Send quoted reply",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"text\": \"replying to your message\",\n  \"quoteMessageId\": \"{{quoteMessageId}}\"\n}"
+                  },
+                  "url": "{{host}}/messages",
+                  "description": "Set quoteMessageId from a prior send response `id`. Unknown ids send unquoted (not 4xx)."
+               }
+            }
+         ]
+      },
+      {
+         "name": "Outbound — Groups",
+         "item": [
+            {
+               "name": "Send text to group",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{groupId}}\",\n  \"text\": \"hello group from Teiwah\"\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            },
+            {
+               "name": "Send image to group",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{groupId}}\",\n  \"media\": {\n    \"type\": \"image\",\n    \"mediaUrl\": \"https://picsum.photos/400.jpg\",\n    \"caption\": \"group image\"\n  }\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            },
+            {
+               "name": "Send quoted reply in group",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{groupId}}\",\n  \"text\": \"reply in group\",\n  \"quoteMessageId\": \"{{quoteMessageId}}\"\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            },
+            {
+               "name": "DM a group member (participant → chatId)",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{participant}}\",\n  \"text\": \"DMing you directly from the group context\"\n}"
+                  },
+                  "url": "{{host}}/messages",
+                  "description": "No outbound `participant` field — use the inbound webhook `participant` value AS `chatId` to message that person 1:1. Get it from a group inbound log line or webhook after someone posts in the group."
+               }
+            }
+         ]
+      },
+      {
+         "name": "Validation errors",
+         "item": [
+            {
+               "name": "Unfetchable mediaUrl (expect 422)",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"image\",\n    \"mediaUrl\": \"https://example.com/this-does-not-exist-404.jpg\"\n  }\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            },
+            {
+               "name": "Neither text nor media (expect 400)",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\"\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            },
+            {
+               "name": "Both text and media (expect 400)",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"text\": \"hi\",\n  \"media\": { \"type\": \"image\", \"mediaUrl\": \"https://picsum.photos/400\" }\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            },
+            {
+               "name": "Malformed chatId (expect 400)",
+               "request": {
+                  "method": "POST",
+                  "header": [{ "key": "Content-Type", "value": "application/json" }],
+                  "body": {
+                     "mode": "raw",
+                     "raw": "{\n  \"chatId\": \"not-a-number\",\n  \"text\": \"hi\"\n}"
+                  },
+                  "url": "{{host}}/messages"
+               }
+            }
+         ]
+      }
+   ]
+}

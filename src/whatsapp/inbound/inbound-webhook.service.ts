@@ -39,7 +39,13 @@ export class InboundWebhookService {
          if (!webhookMessage) continue
 
          log.info(
-            { chatId: webhookMessage.chatId, text: webhookMessage.text },
+            {
+               chatId: webhookMessage.chatId,
+               participant: webhookMessage.participant,
+               phoneNumber: webhookMessage.contact.phoneNumber,
+               // Never log message content (privacy). Length only, when it's a text message.
+               textLength: webhookMessage.text?.length
+            },
             'Received message'
          )
          await this.deliver(webhookUrl, webhookMessage, msg)

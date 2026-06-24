@@ -6,6 +6,7 @@ import { MessageStore } from '../store/message-store.service.js'
 import makeWASocket, {
    Browsers,
    DisconnectReason,
+   WAMessageStatus,
    WASocket,
    useMultiFileAuthState
 } from '@whiskeysockets/baileys'
@@ -136,6 +137,45 @@ export class WhatsappService implements OnModuleInit {
          for (const msg of update.messages) this.messageStore.remember(msg)
          void this.inboundWebhookService.processInboundMessages(update)
       })
+
+      // New-chat message cap: WhatsApp's graded early warning before a hard
+      // restriction (NONE → FIRST_WARNING → SECOND_WARNING → CAPPED). Push-only,
+      // so log the full payload to inspect quota/cycle behavior later.
+      sock.ev.on('message-capping.update', (info) => {
+         log.warn(
+            {
+               cappingStatus: info.capping_status,
+               usedQuota: info.used_quota,
+               totalQuota: info.total_quota,
+               cycleStartTimestamp: info.cycle_start_timestamp,
+               cycleEndTimestamp: info.cycle_end_timestamp,
+               serverSentTimestamp: info.server_sent_timestamp,
+               oteStatus: info.ote_status,
+               mvStatus: info.mv_status
+            },
+            `[Restriction] New-chat message cap update: ${info.capping_status ?? 'unknown'}`
+         )
+      })
+
+      // Outbound send acks: log ONLY error acks (status ERROR), which is how a
+      // *rejected* send surfaces — e.g. 463 / reachout-timelocked. The error code
+      // (and ACCOUNT_RESTRICTED_TEXT for the reachout case) rides in
+      // messageStubParameters. Normal delivery/read acks are skipped to avoid
+      // flooding logs and Better Stack.
+      sock.ev.on('messages.update', (updates) => {
+         for (const { key, update } of updates) {
+            if (update.status !== WAMessageStatus.ERROR) continue
+            log.warn(
+               {
+                  id: key.id,
+                  remoteJid: key.remoteJid,
+                  fromMe: key.fromMe,
+                  error: update.messageStubParameters
+               },
+               '[Restriction] Outbound send rejected (error ack)'
+            )
+         }
+      })
    }
 
    /* -------------------------------------------------------------------------- */
@@ -145,12 +185,34 @@ export class WhatsappService implements OnModuleInit {
    private async handleConnectionUpdate({
       connection,
       qr,
-      lastDisconnect
+      lastDisconnect,
+      reachoutTimeLock
    }: {
       connection?: string
       qr?: string
       lastDisconnect?: { error?: unknown }
+      reachoutTimeLock?: {
+         isActive?: boolean
+         timeEnforcementEnds?: Date
+         enforcementType?: string
+      }
    }) {
+      // Reachout time-lock = the actual "account restricted" / 463 state. Baileys
+      // pushes it on connection.update and fires again with isActive:false when it
+      // lifts. Log both edges so restriction windows are queryable later.
+      if (reachoutTimeLock) {
+         log.warn(
+            {
+               isActive: reachoutTimeLock.isActive,
+               timeEnforcementEnds: reachoutTimeLock.timeEnforcementEnds,
+               enforcementType: reachoutTimeLock.enforcementType
+            },
+            reachoutTimeLock.isActive
+               ? '[Restriction] Reachout time-lock ACTIVE — account restricted'
+               : '[Restriction] Reachout time-lock lifted'
+         )
+      }
+
       if (qr) {
          this.state$.next({
             status: 'waiting_qr',
@@ -195,7 +257,15 @@ export class WhatsappService implements OnModuleInit {
             ...(isAuthenticating ? { qr: null } : {})
          })
 
-         log.warn({ statusCode, shouldReconnect }, 'Connection closed')
+         // Decode the numeric status to its Baileys reason name (e.g. 401 →
+         // 'loggedOut') so the cause is queryable — key for spotting forced
+         // logouts from account restrictions vs ordinary reconnects.
+         const reason =
+            (typeof statusCode === 'number'
+               ? (DisconnectReason as Record<number, string>)[statusCode]
+               : undefined) ?? 'unknown'
+
+         log.warn({ statusCode, reason, shouldReconnect }, 'Connection closed')
 
          if (shouldReconnect) {
             void this.createSocket()

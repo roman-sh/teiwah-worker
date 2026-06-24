@@ -3,7 +3,7 @@ import {
    Injectable,
    UnprocessableEntityException
 } from '@nestjs/common'
-import type { WAMessage } from '@whiskeysockets/baileys'
+import { isJidGroup, isLidUser, type WAMessage } from '@whiskeysockets/baileys'
 import { WhatsappService } from '../connection/whatsapp.service.js'
 import { MessageStore } from '../store/message-store.service.js'
 import { chatIdToJid } from './chat-id.util.js'
@@ -60,13 +60,28 @@ export class OutboundMessagesService {
             throw error
          }
          log.info(
-            { chatId: jid, mediaType: media.type, quoted: quoted != null },
+            {
+               chatId: jid,
+               target: targetType(jid),
+               type: 'media',
+               mediaType: media.type,
+               id: sent?.key?.id,
+               quoted: quoted != null
+            },
             'Sent WhatsApp media message'
          )
       } else if (text) {
          sent = await socket.sendMessage(jid, { text }, { quoted })
          log.info(
-            { chatId: jid, quoted: quoted != null },
+            {
+               chatId: jid,
+               target: targetType(jid),
+               type: 'text',
+               // Never log message content (privacy). Length only.
+               textLength: text.length,
+               id: sent?.key?.id,
+               quoted: quoted != null
+            },
             'Sent WhatsApp text message'
          )
       } else {
@@ -79,4 +94,16 @@ export class OutboundMessagesService {
       if (sent) this.messageStore.remember(sent)
       return sent?.key?.id ?? undefined
    }
+}
+
+/**
+ * Classify the resolved send target for log analysis: `group` (…@g.us), `lid`
+ * (…@lid), or `pn` (phone-number JID). Lets a log query break send volume down
+ * by conversation type — useful for spotting messaging patterns (e.g. what
+ * triggered an account restriction).
+ */
+function targetType(jid: string): 'group' | 'lid' | 'pn' {
+   if (isJidGroup(jid)) return 'group'
+   if (isLidUser(jid)) return 'lid'
+   return 'pn'
 }

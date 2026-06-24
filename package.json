@@ -20,10 +20,11 @@
    },
    "dependencies": {
       "@hapi/boom": "^10.0.1",
+      "@logtail/pino": "^0.5.8",
       "@nestjs/common": "^11.0.1",
       "@nestjs/core": "^11.0.1",
       "@nestjs/platform-express": "^11.0.1",
-      "@whiskeysockets/baileys": "^7.0.0-rc10",
+      "@whiskeysockets/baileys": "^7.0.0-rc13",
       "class-transformer": "^0.5.1",
       "class-validator": "^0.15.1",
       "content-disposition": "^2.0.1",
