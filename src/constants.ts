@@ -54,3 +54,15 @@ export const SESSION_CONFIG_URL
  * move/loss drops it and the session must re-scan the QR.
  */
 export const AUTH_PATH = `${env.SESSION_STORAGE_PATH}/auth`
+
+/**
+ * Recent-message store SQLite database file.
+ *
+ * Sibling of AUTH_PATH under the same per-session durable volume (the store
+ * creates the parent `store/` directory). Holds the node:sqlite-backed
+ * recent-message store (see MessageStore) that resolves quoted replies and read
+ * receipts back to full WAMessages. Durable across in-place pod restarts;
+ * dropped on node move/loss alongside auth — a cold start simply re-warms it
+ * (unresolved ids fall back gracefully).
+ */
+export const MESSAGE_DB_PATH = `${env.SESSION_STORAGE_PATH}/store/messages.db`

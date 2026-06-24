@@ -13,6 +13,10 @@ async function bootstrap() {
 
    app.enableCors()
 
+   // Run lifecycle hooks (e.g. MessageStore's DB close) on SIGTERM/SIGINT —
+   // k8s sends SIGTERM on pod shutdown, so this checkpoints SQLite cleanly.
+   app.enableShutdownHooks()
+
    await app.listen(env.PORT)
    log.info(`HTTP server listening on port ${env.PORT}`)
 }
