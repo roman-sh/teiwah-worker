@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import type { BaileysEventMap, WAMessage } from '@whiskeysockets/baileys'
 import { MEDIA_BASE_URL } from '../../config.js'
+import { MediaService } from '../media/media.service.js'
 import { ControlAppClient } from '../control/control-app.client.js'
 import { toInboundMessage, type InboundMessage } from './inbound-message.adapter.js'
 
@@ -18,7 +19,10 @@ import { toInboundMessage, type InboundMessage } from './inbound-message.adapter
  */
 @Injectable()
 export class InboundWebhookService {
-   constructor(private readonly controlAppClient: ControlAppClient) {}
+   constructor(
+      private readonly controlAppClient: ControlAppClient,
+      private readonly mediaService: MediaService
+   ) {}
 
    /**
     * Handle a Baileys messages.upsert batch and forward each eligible message.
@@ -39,10 +43,16 @@ export class InboundWebhookService {
          const webhookMessage = toInboundMessage(msg)
          if (!webhookMessage) continue
 
-         // Enrich media with the customer-facing download URL (delivery concern,
-         // kept out of the pure adapter). Keyed by the native message id.
-         if (webhookMessage.media)
+         // Enrich media with delivery-layer fields the pure adapter omits.
+         // Keyed by the native message id.
+         if (webhookMessage.media) {
+            // Download URL (GET /media/:id) — present on every media type.
             webhookMessage.media.url = `${MEDIA_BASE_URL}/${webhookMessage.id}`
+            // Voice notes are additionally inlined as base64 (API.md §6.1) so
+            // transcription flows skip the extra round-trip.
+            if (webhookMessage.media.type === 'ptt')
+               webhookMessage.media.base64 = await this.inlinePttBase64(msg)
+         }
 
          log.info(
             {
@@ -57,6 +67,23 @@ export class InboundWebhookService {
             'Received message'
          )
          await this.deliver(webhookUrl, webhookMessage, msg)
+      }
+   }
+
+   /**
+    * Eagerly download a voice note and return it as base64 (API.md §6.1).
+    *
+    * Best-effort: any failure (offline socket, CDN miss) is logged and resolves
+    * to undefined so the message is still delivered — the customer falls back to
+    * the `media.url`. ptt clips are small, so holding one in memory is fine.
+    */
+   private async inlinePttBase64(msg: WAMessage): Promise<string | undefined> {
+      try {
+         const buffer = await this.mediaService.downloadBuffer(msg)
+         return buffer.toString('base64')
+      } catch (error) {
+         log.warn(error, 'Failed to inline ptt base64; delivering url only')
+         return undefined
       }
    }
 

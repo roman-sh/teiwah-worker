@@ -1,8 +1,9 @@
-import { Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
+import { Injectable, OnModuleInit } from '@nestjs/common'
 import { AUTH_PATH } from '../../config.js'
 import { ControlAppClient } from '../control/control-app.client.js'
 import { InboundWebhookService } from '../inbound/inbound-webhook.service.js'
 import { MessageStore } from '../store/message-store.service.js'
+import { WaSocketRegistry } from './wa-socket.registry.js'
 import makeWASocket, {
    Browsers,
    DisconnectReason,
@@ -54,21 +55,23 @@ export class WhatsappService implements OnModuleInit {
    /**
     * Active Baileys socket when the session is connected.
     * Throws 503 if not connected — used by OutboundMessagesService to send messages.
+    * Delegates to the registry, the single source of truth shared with consumers
+    * (e.g. MediaService) that can't import this service without a cycle.
     */
    get connectedSocket(): WASocket {
-      if (this.state$.value.status !== 'connected' || !this.sock)
-         throw new ServiceUnavailableException('Session is not connected')
-
-      return this.sock
+      return this.socketRegistry.connectedSocket
    }
 
    constructor(
       private readonly inboundWebhookService: InboundWebhookService,
       private readonly controlAppClient: ControlAppClient,
-      private readonly messageStore: MessageStore
+      private readonly messageStore: MessageStore,
+      private readonly socketRegistry: WaSocketRegistry
    ) {
-      // Automatically log every state change with the global logger
+      // Automatically log every state change with the global logger, and mirror
+      // the connection gate into the registry so socket consumers see it.
       this.state$.subscribe((state) => {
+         this.socketRegistry.setConnected(state.status === 'connected')
          log.info(
             { status: state.status, phoneNumber: state.phoneNumber },
             `[Session Status] Changed to: ${state.status}`
@@ -113,6 +116,7 @@ export class WhatsappService implements OnModuleInit {
       })
 
       this.sock = sock
+      this.socketRegistry.setSocket(sock)
 
       this.bindSocketEvents(sock, saveCreds)
    }

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ChatActionsController } from './actions/chat-actions.controller.js'
 import { ChatActionsService } from './actions/chat-actions.service.js'
 import { EventsController } from './connection/events.controller.js'
+import { WaSocketRegistry } from './connection/wa-socket.registry.js'
 import { WhatsappService } from './connection/whatsapp.service.js'
 import { ControlAppClient } from './control/control-app.client.js'
 import { InboundWebhookService } from './inbound/inbound-webhook.service.js'
@@ -21,6 +22,7 @@ import { MESSAGE_DB_PATH } from '../config.js'
    ],
    providers: [
       WhatsappService,
+      WaSocketRegistry,
       ControlAppClient,
       InboundWebhookService,
       OutboundMessagesService,

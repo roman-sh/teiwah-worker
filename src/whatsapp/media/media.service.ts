@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import {
    downloadMediaMessage,
-   normalizeMessageContent
+   normalizeMessageContent,
+   type WAMessage
 } from '@whiskeysockets/baileys'
 import { create as createContentDisposition } from 'content-disposition'
 import mime from 'mime-types'
-import { WhatsappService } from '../connection/whatsapp.service.js'
+import { WaSocketRegistry } from '../connection/wa-socket.registry.js'
 import { extractMedia } from '../inbound/inbound-media.adapter.js'
 import { MessageStore } from '../store/message-store.service.js'
 
@@ -30,7 +31,10 @@ export interface DownloadedMedia {
 @Injectable()
 export class MediaService {
    constructor(
-      private readonly whatsappService: WhatsappService,
+      // Read the socket from the registry (not WhatsappService) so we don't
+      // import it: the webhook injects us to inline ptt base64, and WhatsappService
+      // injects the webhook — importing it here would close an ESM/DI cycle.
+      private readonly socketRegistry: WaSocketRegistry,
       private readonly messageStore: MessageStore
    ) {}
 
@@ -48,15 +52,7 @@ export class MediaService {
             `Message ${messageId} carries no downloadable media`
          )
 
-      // connectedSocket throws 503 when offline; its updateMediaMessage handles
-      // the re-upload when WhatsApp's CDN copy has expired.
-      const socket = this.whatsappService.connectedSocket
-      const buffer = await downloadMediaMessage(
-         msg,
-         'buffer',
-         {}, // MediaDownloadOptions (e.g. byte range) — none, fetch the whole file
-         { logger: log, reuploadRequest: socket.updateMediaMessage }
-      )
+      const buffer = await this.downloadBuffer(msg)
 
       const mimeType = media.mimeType ?? 'application/octet-stream'
       // mime.extension() strips any ;params and maps unknowns to false → 'bin'.
@@ -73,5 +69,24 @@ export class MediaService {
          mimeType,
          contentDisposition: createContentDisposition(filename, { type: 'inline' })
       }
+   }
+
+   /**
+    * Download + decrypt a message's media bytes via Baileys: fetch from
+    * WhatsApp's CDN, reuploading through the live socket if the CDN copy
+    * expired. Throws 503 when the session is offline (connectedSocket).
+    *
+    * Shared by GET /media (above) and the webhook's ptt base64 inlining, both of
+    * which already have the WAMessage in hand — so this takes the message, not an
+    * id, and does no store lookup of its own.
+    */
+   async downloadBuffer(msg: WAMessage): Promise<Buffer> {
+      const socket = this.socketRegistry.connectedSocket
+      return downloadMediaMessage(
+         msg,
+         'buffer',
+         {}, // MediaDownloadOptions (e.g. byte range) — none, fetch the whole file
+         { logger: log, reuploadRequest: socket.updateMediaMessage }
+      )
    }
 }
