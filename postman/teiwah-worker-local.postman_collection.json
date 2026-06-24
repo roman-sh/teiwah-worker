@@ -47,7 +47,7 @@
                   "header": [{ "key": "Content-Type", "value": "application/json" }],
                   "body": {
                      "mode": "raw",
-                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"image\",\n    \"mediaUrl\": \"https://picsum.photos/400.jpg\",\n    \"caption\": \"a picture\"\n  }\n}"
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"image\",\n    \"url\": \"https://picsum.photos/400.jpg\",\n    \"caption\": \"a picture\"\n  }\n}"
                   },
                   "url": "{{host}}/messages",
                   "description": "mimeType/filename auto-derived when omitted."
@@ -60,7 +60,7 @@
                   "header": [{ "key": "Content-Type", "value": "application/json" }],
                   "body": {
                      "mode": "raw",
-                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"audio\",\n    \"mediaUrl\": \"https://download.samplelib.com/mp3/sample-3s.mp3\"\n  }\n}"
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"audio\",\n    \"url\": \"https://download.samplelib.com/mp3/sample-3s.mp3\"\n  }\n}"
                   },
                   "url": "{{host}}/messages"
                }
@@ -72,7 +72,7 @@
                   "header": [{ "key": "Content-Type", "value": "application/json" }],
                   "body": {
                      "mode": "raw",
-                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"ptt\",\n    \"mediaUrl\": \"https://samplefile.com/samples/download/audio/opus/opus_5s_sample_file_94KB.opus/\"\n  }\n}"
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"ptt\",\n    \"url\": \"https://samplefile.com/samples/download/audio/opus/opus_5s_sample_file_94KB.opus/\"\n  }\n}"
                   },
                   "url": "{{host}}/messages",
                   "description": "Must be OGG/Opus. MP3 with ptt:true shows a voice-note bubble but plays silent — use type:audio for MP3 instead."
@@ -85,7 +85,7 @@
                   "header": [{ "key": "Content-Type", "value": "application/json" }],
                   "body": {
                      "mode": "raw",
-                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"document\",\n    \"mediaUrl\": \"https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf\"\n  }\n}"
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"document\",\n    \"url\": \"https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf\"\n  }\n}"
                   },
                   "url": "{{host}}/messages"
                }
@@ -127,7 +127,7 @@
                   "header": [{ "key": "Content-Type", "value": "application/json" }],
                   "body": {
                      "mode": "raw",
-                     "raw": "{\n  \"chatId\": \"{{groupId}}\",\n  \"media\": {\n    \"type\": \"image\",\n    \"mediaUrl\": \"https://picsum.photos/400.jpg\",\n    \"caption\": \"group image\"\n  }\n}"
+                     "raw": "{\n  \"chatId\": \"{{groupId}}\",\n  \"media\": {\n    \"type\": \"image\",\n    \"url\": \"https://picsum.photos/400.jpg\",\n    \"caption\": \"group image\"\n  }\n}"
                   },
                   "url": "{{host}}/messages"
                }
@@ -163,13 +163,13 @@
          "name": "Validation errors",
          "item": [
             {
-               "name": "Unfetchable mediaUrl (expect 422)",
+               "name": "Unfetchable url (expect 422)",
                "request": {
                   "method": "POST",
                   "header": [{ "key": "Content-Type", "value": "application/json" }],
                   "body": {
                      "mode": "raw",
-                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"image\",\n    \"mediaUrl\": \"https://example.com/this-does-not-exist-404.jpg\"\n  }\n}"
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"media\": {\n    \"type\": \"image\",\n    \"url\": \"https://example.com/this-does-not-exist-404.jpg\"\n  }\n}"
                   },
                   "url": "{{host}}/messages"
                }
@@ -193,7 +193,7 @@
                   "header": [{ "key": "Content-Type", "value": "application/json" }],
                   "body": {
                      "mode": "raw",
-                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"text\": \"hi\",\n  \"media\": { \"type\": \"image\", \"mediaUrl\": \"https://picsum.photos/400\" }\n}"
+                     "raw": "{\n  \"chatId\": \"{{chatId}}\",\n  \"text\": \"hi\",\n  \"media\": { \"type\": \"image\", \"url\": \"https://picsum.photos/400\" }\n}"
                   },
                   "url": "{{host}}/messages"
                }

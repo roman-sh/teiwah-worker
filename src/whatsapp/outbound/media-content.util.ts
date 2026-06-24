@@ -25,7 +25,7 @@ const FETCH_TIMEOUT_MS = 4000
 export async function buildMediaContent(
    media: MediaDto
 ): Promise<AnyMediaMessageContent> {
-   const url = media.mediaUrl
+   const url = media.url
    const { mimetype, filename } = await resolveMediaMeta(media)
 
    switch (media.type) {
@@ -66,12 +66,12 @@ export async function buildMediaContent(
 async function resolveMediaMeta(
    media: MediaDto
 ): Promise<{ mimetype: string | undefined; filename: string | undefined }> {
-   let filename = media.filename ?? basenameFromUrl(media.mediaUrl)
+   let filename = media.filename ?? basenameFromUrl(media.url)
    let mimetype =
-      media.mimeType ?? mimeFromName(filename) ?? mimeFromName(media.mediaUrl)
+      media.mimeType ?? mimeFromName(filename) ?? mimeFromName(media.url)
 
    if (media.type === 'document' && !mimetype) {
-      const inspected = await inspectMedia(media.mediaUrl)
+      const inspected = await inspectMedia(media.url)
       mimetype = inspected.mimetype
       filename = filename ?? inspected.filename
    }
@@ -82,7 +82,7 @@ async function resolveMediaMeta(
 /**
  * Best-effort liveness check for a media URL: a tiny ranged GET (no body read),
  * true on any success status. Used only on the send-failure path to decide
- * whether an opaque Baileys error was caused by an unfetchable mediaUrl, so it
+ * whether an opaque Baileys error was caused by an unfetchable media url, so it
  * never adds latency to a successful send. A network error / timeout → false.
  */
 export async function isMediaUrlReachable(url: string): Promise<boolean> {

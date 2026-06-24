@@ -49,12 +49,12 @@ export class OutboundMessagesService {
             sent = await socket.sendMessage(jid, content, { quoted })
          } catch (error) {
             // Baileys' send errors are opaque. The most common client-side cause
-            // for media is an unfetchable mediaUrl, so re-check it independently
+            // for media is an unfetchable media url, so re-check it independently
             // (rather than parse Baileys internals) and surface an actionable 422.
             // If the URL is fine, it was something else — rethrow as-is.
-            if (!(await isMediaUrlReachable(media.mediaUrl))) {
+            if (!(await isMediaUrlReachable(media.url))) {
                throw new UnprocessableEntityException(
-                  `media.mediaUrl could not be fetched: ${media.mediaUrl}`
+                  `media.url could not be fetched: ${media.url}`
                )
             }
             throw error

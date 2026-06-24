@@ -108,8 +108,7 @@ export class WhatsappService implements OnModuleInit {
          logger: pino({
             level: 'silent'
          }),
-         // Second arg is the label shown in WhatsApp → Linked Devices.
-         browser: Browsers.macOS('Teiwah'),
+         browser: Browsers.macOS('Desktop'),
          syncFullHistory: false
       })
 

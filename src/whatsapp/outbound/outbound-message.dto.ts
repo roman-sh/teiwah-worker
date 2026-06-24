@@ -5,7 +5,7 @@
  * text or media:
  *
  *   text:  { "chatId": "...", "text": "Hello" }
- *   media: { "chatId": "...", "media": { "type": "image", "mediaUrl": "..." } }
+ *   media: { "chatId": "...", "media": { "type": "image", "url": "..." } }
  *
  * Exactly one of `text` / `media` is required (enforced by @ExactlyOneOf).
  *
@@ -15,10 +15,10 @@
  *   3. validators run    → fail → Nest returns 400 automatically
  *
  * Notes:
- * - Workers only ever operate on `mediaUrl` (API.md §6). Outbound base64 is
- *   normalized to a `mediaUrl` by Zuplo before it reaches this worker, so there
+ * - Workers only ever operate on `media.url` (API.md §6). Outbound base64 is
+ *   normalized to a `media.url` by Zuplo before it reaches this worker, so there
  *   is no `base64` field here.
- * - `location` is intentionally not yet a media type (it has no `mediaUrl`); its
+ * - `location` is intentionally not yet a media type (it has no `url`); its
  *   shape is still undecided. Add it when resolved.
  */
 import { Transform, Type } from 'class-transformer'
@@ -47,7 +47,7 @@ export class MediaDto {
    /** Media is always referenced by URL at the worker; Baileys fetches it. */
    @Transform(trim)
    @IsUrl({ require_tld: false })
-   mediaUrl!: string
+   url!: string
 
    @IsOptional()
    @Transform(trim)
