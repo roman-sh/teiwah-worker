@@ -14,7 +14,8 @@ import { ChatActionsService } from './chat-actions.service.js'
  *   POST http://localhost:8080/sessions/:sessionId/read    { "messageId": "..." }
  *
  * Production (via Zuplo):
- *   POST https://api.teiwah.com/sessions/:sessionId/{typing,read}
+ *   POST https://api.teiwah.com/typing  { "chatId": "..." }
+ *   POST https://api.teiwah.com/read    { "messageId": "..." }
  *   Authorization: Bearer <session-api-key>
  */
 @Controller()
