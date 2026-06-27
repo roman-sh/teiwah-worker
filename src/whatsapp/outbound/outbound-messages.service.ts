@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common'
 import { isJidGroup, isLidUser, type WAMessage } from '@whiskeysockets/baileys'
 import { WhatsappService } from '../connection/whatsapp.service.js'
+import { assertTrustedContact } from '../restrictions/trusted-contact.util.js'
 import { MessageStore } from '../store/message-store.service.js'
 import { chatIdToJid } from './chat-id.util.js'
 import { buildMediaContent, isMediaUrlReachable } from './media-content.util.js'
@@ -32,6 +33,13 @@ export class OutboundMessagesService {
    }: OutboundMessageDto): Promise<string | undefined> {
       const jid = chatIdToJid(chatId)
       const socket = this.whatsappService.connectedSocket
+
+      // Trusted-contact gate: refuse cold 1:1 reach-outs. Sending to a contact we
+      // hold no live Trusted-Contact token for is the behavior that trips the
+      // account reach-out lock (463). Groups are skipped — the tctoken protocol
+      // is 1:1-only. Replies pass naturally (the peer's inbound token is stored).
+      // See RESTRICTIONS.md.
+      await assertTrustedContact(jid, socket)
 
       // Resolve the quoted message (best-effort): an unknown/evicted id yields
       // undefined, which Baileys treats as "no quote" — so it sends unquoted.
