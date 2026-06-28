@@ -1,6 +1,7 @@
 import { Controller, Sse } from '@nestjs/common'
 import { map, Observable } from 'rxjs'
-import { WhatsappService, SessionState } from './whatsapp.service.js'
+import { SessionState } from './session-state.js'
+import { WhatsappService } from './whatsapp.service.js'
 
 /**
  * SSE stream for session status and QR code.

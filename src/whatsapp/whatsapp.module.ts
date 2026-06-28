@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ChatActionsController } from './actions/chat-actions.controller.js'
 import { ChatActionsService } from './actions/chat-actions.service.js'
+import { ConnectionController } from './connection/connection.controller.js'
 import { EventsController } from './connection/events.controller.js'
 import { WaSocketRegistry } from './connection/wa-socket.registry.js'
 import { WhatsappService } from './connection/whatsapp.service.js'
@@ -16,6 +17,7 @@ import { MESSAGE_DB_PATH } from '../config.js'
 @Module({
    controllers: [
       EventsController,
+      ConnectionController,
       MessagesController,
       ChatActionsController,
       MediaController
