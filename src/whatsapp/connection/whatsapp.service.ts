@@ -164,6 +164,30 @@ export class WhatsappService implements OnModuleInit {
    }
 
    /**
+    * User-initiated logout. Public entry for POST /disconnect.
+    *
+    * Unlinks the device server-side (best effort), then wipes auth and idles —
+    * the same terminal state as a dead-creds close, but requested rather than
+    * forced. Reconnect afterwards surfaces a fresh QR. We detach the
+    * connection.update listener before logout() so its resulting close can't
+    * re-enter handleConnectionClose and double-handle the teardown; wipeAndIdle
+    * then drops the rest of the listeners and ends the socket.
+    */
+   async disconnect(): Promise<void> {
+      const sock = this.sock
+      if (sock) {
+         sock.ev.removeAllListeners('connection.update')
+         try {
+            await sock.logout()
+         } catch (error) {
+            log.warn(error, 'logout() failed during manual disconnect; wiping auth anyway')
+         }
+      }
+
+      await this.wipeAndIdle('manual')
+   }
+
+   /**
     * Detach our listeners from the current socket and close it. Listeners are
     * removed BEFORE end() so the resulting close can't re-enter our handlers and
     * trigger another reconnect. Also drops the registry reference (→ 503 until a

@@ -6,6 +6,7 @@ import { WhatsappService } from './whatsapp.service.js'
  *
  * Dashboard calls via Traefik:
  *   POST http://localhost:8080/sessions/:sessionId/reconnect
+ *   POST http://localhost:8080/sessions/:sessionId/disconnect
  */
 @Controller()
 export class ConnectionController {
@@ -20,6 +21,18 @@ export class ConnectionController {
    @HttpCode(HttpStatus.ACCEPTED)
    async reconnect(): Promise<{ ok: true }> {
       await this.whatsappService.reconnect()
+      return { ok: true }
+   }
+
+   /**
+    * User-initiated logout: unlink the device, wipe auth, and idle. The session
+    * lands in `disconnected` (reason `manual`) over the SSE stream; a later
+    * Reconnect produces a fresh QR. Fire and forget like reconnect.
+    */
+   @Post('disconnect')
+   @HttpCode(HttpStatus.ACCEPTED)
+   async disconnect(): Promise<{ ok: true }> {
+      await this.whatsappService.disconnect()
       return { ok: true }
    }
 }

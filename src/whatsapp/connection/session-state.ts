@@ -25,12 +25,17 @@ import { DisconnectReason } from '@whiskeysockets/baileys'
  * `restricted` is the account-restriction case (reachout time-lock / 463): on
  * linked devices WhatsApp kicks us with a 401 that would otherwise look like a
  * plain unlink, so we tag it distinctly for the frontend.
+ *
+ * `manual` is the user-initiated logout (POST /disconnect): not a Baileys close
+ * at all — the worker tears the socket down and wipes auth on request, then
+ * idles here so the dashboard can offer Reconnect (which surfaces a fresh QR).
  */
 export type SessionDisconnectReason =
    | 'logged_out'
    | 'forbidden'
    | 'bad_session'
    | 'restricted'
+   | 'manual'
 
 /** Public session state streamed to the dashboard over SSE. */
 export interface SessionState {
