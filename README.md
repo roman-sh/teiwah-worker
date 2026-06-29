@@ -1,12 +1,13 @@
 # nestwaileys (teiwah-session-app)
 
-*Last updated: May 26, 2026*
+*Last updated: June 29, 2026*
 
 Docker image for the WhatsApp **session worker** — one pod per session in k3d. This README is **terminal ops** (build, deploy, logs). For user flows, payloads, and architecture see the repo root:
 
-- [DESIGN.md](../DESIGN.md) — how the system behaves today
-- [LOCAL_MILESTONE_CHECKPOINT.md](../LOCAL_MILESTONE_CHECKPOINT.md) — what's done / next
-- [teiwah-infra/README.md](../teiwah-infra/README.md) — k3d / Traefik setup
+- [API.md](../API.md) — public payload contract
+- [TEIWAH_ARCHITECTURE.md](../TEIWAH_ARCHITECTURE.md) — runtime flows
+- [DESIGN.md](../DESIGN.md) — dashboard behavior and user journey
+- [teiwah-infra/README.md](../teiwah-infra/README.md) — deployment and operations
 
 ---
 
@@ -43,7 +44,8 @@ kubectl delete pod -l app=<session-id>
 
 **Option C — fresh session:** create a new session from the dashboard (new pod, new QR).
 
-> **Warning:** Pod restart wipes Baileys auth (`auth_info_baileys` is not on a volume). You will need to **scan QR again**.
+Baileys auth is stored on the session PVC, so an ordinary pod restart does not
+require pairing again.
 
 ---
 
@@ -84,12 +86,15 @@ Traefik on the host routes into the pod:
 ```bash
 curl -X POST "http://localhost:8080/sessions/<session-id>/messages" \
   -H "Content-Type: application/json" \
-  -d '{"to":"<from inbound webhook>","text":"hello"}'
+  -d '{"chatId":"<chatId from inbound webhook>","text":"hello"}'
 ```
 
-Use the exact `from` value from the inbound payload (`@lid` or `@s.whatsapp.net`). Expect `{ "success": true }` or `503` if not connected.
+Use the exact `chatId` value from the inbound payload (`@lid`,
+`@s.whatsapp.net`, or `@g.us`). Expect `{ "success": true }` or `503` if not
+connected.
 
-Full payload / flow: [DESIGN.md §7–8](../DESIGN.md)
+Full payload: [API.md](../API.md). Runtime flow:
+[TEIWAH_ARCHITECTURE.md](../TEIWAH_ARCHITECTURE.md).
 
 ---
 

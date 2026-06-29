@@ -4,9 +4,10 @@
  * The worker (nestwaileys) talks to teiwah-control over plain HTTP for exactly
  * two things (see src/constants.ts):
  *
- *   GET   /sessions/:id        -> session config; the worker reads `webhookUrl`
- *                                 to know where to forward inbound messages
- *   PATCH /sessions/:id/phone  -> persist the connected phone number after QR
+ *   GET   /sessions/:id            -> session config; the worker reads `webhookUrl`
+ *                                     to know where to forward inbound messages
+ *   PATCH /sessions/:id/phone      -> persist the connected phone number after QR
+ *   POST  /sessions/:id/authorize  -> trial-abuse gate; here we always authorize
  *
  * This script stands in for control so you can run the worker standalone (no
  * cluster, no Docker, no real control/DB). The worker code is unchanged: just
@@ -37,6 +38,11 @@ const server = createServer((req, res) => {
       // PATCH /sessions/:id/phone  -> accept and ack
       if (method === 'PATCH' && /^\/sessions\/[^/]+\/phone$/.test(url)) {
          return json(res, 200, { ok: true })
+      }
+
+      // POST /sessions/:id/authorize  -> always authorize (no abuse checks locally)
+      if (method === 'POST' && /^\/sessions\/[^/]+\/authorize$/.test(url)) {
+         return json(res, 200, { authorized: true })
       }
 
       // GET /sessions/:id  -> session config with the webhookUrl
