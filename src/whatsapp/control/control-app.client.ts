@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { PHONE_INSERT_URL, SESSION_CONFIG_URL } from '../../config.js'
+import { AUTHORIZE_URL, PHONE_INSERT_URL, SESSION_CONFIG_URL } from '../../config.js'
+import type { SessionDisconnectReason } from '../connection/session-state.js'
 
 /**
  * HTTP client for teiwah-control — the single boundary to the control app.
@@ -41,7 +42,45 @@ export class ControlAppClient {
    }
 
    /**
-    * Look up this session's configured webhook URL (GET /sessions/:id).
+    * Trial-abuse gate (POST /sessions/:id/authorize), called the instant Baileys
+    * pairs and the phone number is known. Control decides whether this number
+    * may connect under this session — it blocks a trial reusing a number already
+    * tied to another account (paying customers are never blocked).
+    *
+    * Fail-open: any error or non-2xx resolves to `{ authorized: true }` so a
+    * control hiccup never strands a legitimate (often paying) user — the same
+    * philosophy as insertPhoneNumber.
+    */
+   async authorizePhoneNumber(
+      phoneNumber: string
+   ): Promise<{ authorized: boolean; reason?: SessionDisconnectReason }> {
+      try {
+         const res = await fetch(AUTHORIZE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phoneNumber })
+         })
+
+         if (!res.ok) {
+            log.error(
+               { status: res.status, phoneNumber },
+               'Authorize check returned non-2xx; allowing connection (fail-open)'
+            )
+            return { authorized: true }
+         }
+
+         return (await res.json()) as {
+            authorized: boolean
+            reason?: SessionDisconnectReason
+         }
+      } catch (error) {
+         log.error(error, 'Authorize check failed; allowing connection (fail-open)')
+         return { authorized: true }
+      }
+   }
+
+  /**
+   * Look up this session's configured webhook URL (GET /sessions/:id).
     *
     * Fetched fresh per call (no cache) so dashboard edits take effect
     * immediately. Returns null — caller skips forwarding — when control is

@@ -29,6 +29,10 @@ import { DisconnectReason } from '@whiskeysockets/baileys'
  * `manual` is the user-initiated logout (POST /disconnect): not a Baileys close
  * at all — the worker tears the socket down and wipes auth on request, then
  * idles here so the dashboard can offer Reconnect (which surfaces a fresh QR).
+ *
+ * `number_in_use` is the trial-abuse block: on pair, control reports the number
+ * already belongs to another account's session (a second free trial), so the
+ * worker logs the device out and idles here instead of completing the connect.
  */
 export type SessionDisconnectReason =
    | 'logged_out'
@@ -36,6 +40,7 @@ export type SessionDisconnectReason =
    | 'bad_session'
    | 'restricted'
    | 'manual'
+   | 'number_in_use'
 
 /** Public session state streamed to the dashboard over SSE. */
 export interface SessionState {

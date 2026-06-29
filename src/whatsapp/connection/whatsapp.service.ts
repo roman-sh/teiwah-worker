@@ -10,6 +10,7 @@ import {
 import { MessageStore } from '../store/message-store.service.js'
 import {
    ReachoutTimeLock,
+   SessionDisconnectReason,
    SessionState,
    toSessionDisconnectReason
 } from './session-state.js'
@@ -173,18 +174,20 @@ export class WhatsappService implements OnModuleInit {
     * re-enter handleConnectionClose and double-handle the teardown; wipeAndIdle
     * then drops the rest of the listeners and ends the socket.
     */
-   async disconnect(): Promise<void> {
+   async disconnect(
+      reason: SessionDisconnectReason = 'manual'
+   ): Promise<void> {
       const sock = this.sock
       if (sock) {
          sock.ev.removeAllListeners('connection.update')
          try {
             await sock.logout()
          } catch (error) {
-            log.warn(error, 'logout() failed during manual disconnect; wiping auth anyway')
+            log.warn(error, 'logout() failed during disconnect; wiping auth anyway')
          }
       }
 
-      await this.wipeAndIdle('manual')
+      await this.wipeAndIdle(reason)
    }
 
    /**
@@ -314,7 +317,7 @@ export class WhatsappService implements OnModuleInit {
    }) {
       if (reachoutTimeLock) this.handleReachoutTimeLock(reachoutTimeLock)
       if (qr) this.handleQr(qr)
-      if (connection === 'open') this.handleConnectionOpen()
+      if (connection === 'open') await this.handleConnectionOpen()
       if (connection === 'close') await this.handleConnectionClose(lastDisconnect)
    }
 
@@ -358,13 +361,30 @@ export class WhatsappService implements OnModuleInit {
    }
 
    /** Connection established — publish the bare phone number and persist it. */
-   private handleConnectionOpen() {
+   private async handleConnectionOpen() {
       // A clean connection means any prior restriction has lifted.
       this.reachoutLockActive = false
 
       // sock.user.id is the full JID, e.g. 972501234567:1@s.whatsapp.net.
       // jidDecode strips the device suffix (:1) and server to give the bare number.
       const phoneNumber = jidDecode(this.sock!.user!.id)!.user
+
+      // Trial-abuse gate: pairing is the first moment we learn the number, so
+      // ask control whether it may connect under this session before we treat
+      // the session as live. A blocked number (e.g. a trial reusing another
+      // account's number) is logged out + idled with the reason so the
+      // dashboard can explain it. The client fails open, so a control hiccup
+      // can never strand a paying user here.
+      const { authorized, reason } =
+         await this.controlAppClient.authorizePhoneNumber(phoneNumber)
+      if (!authorized) {
+         log.warn(
+            { phoneNumber, reason },
+            '[Abuse] Number not authorized for this session; disconnecting'
+         )
+         await this.disconnect(reason ?? 'number_in_use')
+         return
+      }
 
       this.state$.next({
          status: 'connected',

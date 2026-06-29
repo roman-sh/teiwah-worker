@@ -20,6 +20,15 @@ export const PHONE_INSERT_URL
    = `${env.CONTROL_APP_BASE_URL}/sessions/${env.SESSION_ID}/phone`
 
 /**
+ * POST — trial-abuse gate, called the instant Baileys pairs and the phone
+ * number is known (before PHONE_INSERT_URL persists it). Control answers
+ * `{ authorized, reason? }`; on `authorized: false` the worker logs out and
+ * idles. Worker-facing; no auth guard (same as the phone/config routes).
+ */
+export const AUTHORIZE_URL
+   = `${env.CONTROL_APP_BASE_URL}/sessions/${env.SESSION_ID}/authorize`
+
+/**
  * GET — session config lookup for this worker.
  *
  * Returns the full session row including webhookUrl. Used on each inbound
