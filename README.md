@@ -68,14 +68,18 @@ kubectl logs -l app=<session-id> --tail=100
 kubectl logs -l app=<session-id> --previous
 ```
 
-**Clean up every session** (deployments, services, ingress, middleware):
+**Clean up session worker resources** (deployments, services, ingress, middleware, PVCs):
 
 ```bash
-# from teiwah-control/
-./cleanup-sessions.sh
+# on teiwah-master (cloud k3s) — defaults to sandbox (dev)
+cd ~/teiwah-infra && make cleanup
+
+# prod namespace
+make cleanup NS=default
 ```
 
-Also clear stale rows in Supabase if needed.
+Also clear stale session rows in the database if needed (`npm run db:studio` in
+`teiwah-control`, or Supabase for prod).
 
 ---
 
