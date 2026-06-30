@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common'
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
 import { rm } from 'node:fs/promises'
 import { AUTH_PATH } from '../../config.js'
 import { ControlAppClient } from '../control/control-app.client.js'
@@ -39,7 +39,8 @@ import { BehaviorSubject } from 'rxjs'
  *
  * Reading guide — the class is organized top to bottom as:
  *   1. Public state          — `state$` (the SSE source of truth) + the socket.
- *   2. Nest lifecycle        — `onModuleInit` kicks off the first connection.
+ *   2. Nest lifecycle        — `onModuleInit` kicks off the first connection;
+ *                              `onModuleDestroy` unlinks on pod shutdown (delete).
  *   3. Socket bootstrap       — `createSocket` / `reconnect` / `disposeCurrentSocket`
  *                               / `wipeAuth`: create, replace, and tear down the
  *                               disposable socket; auth (AUTH_PATH) is durable.
@@ -54,7 +55,7 @@ import { BehaviorSubject } from 'rxjs'
  * it and injects its dependencies automatically; we never `new` it ourselves.
  */
 @Injectable()
-export class WhatsappService implements OnModuleInit {
+export class WhatsappService implements OnModuleInit, OnModuleDestroy {
    /* -------------------------------------------------------------------------- */
    /* Public state                                                               */
    /* -------------------------------------------------------------------------- */
@@ -118,6 +119,17 @@ export class WhatsappService implements OnModuleInit {
       await this.createSocket()
    }
 
+   /**
+    * k8s sends SIGTERM when the deployment is deleted (session delete, billing
+    * reconciliation, etc.). Unlink the linked device so the phone does not keep
+    * a ghost entry. Local storage is removed by the PVC delete — no auth wipe
+    * or SSE state update here. `main.ts` enables shutdown hooks.
+    */
+   async onModuleDestroy(): Promise<void> {
+      log.info('Pod shutdown — unlinking WhatsApp linked device')
+      await this.unlinkDevice()
+   }
+
    /* -------------------------------------------------------------------------- */
    /* Socket bootstrap                                                           */
    /* -------------------------------------------------------------------------- */
@@ -169,25 +181,39 @@ export class WhatsappService implements OnModuleInit {
     *
     * Unlinks the device server-side (best effort), then wipes auth and idles —
     * the same terminal state as a dead-creds close, but requested rather than
-    * forced. Reconnect afterwards surfaces a fresh QR. We detach the
-    * connection.update listener before logout() so its resulting close can't
-    * re-enter handleConnectionClose and double-handle the teardown; wipeAndIdle
-    * then drops the rest of the listeners and ends the socket.
+    * forced. Reconnect afterwards surfaces a fresh QR.
     */
    async disconnect(
       reason: SessionDisconnectReason = 'manual'
    ): Promise<void> {
+      await this.unlinkDevice()
+      await this.wipeAuth()
+
+      this.state$.next({
+         status: 'disconnected',
+         qr: null,
+         phoneNumber: null,
+         disconnectReason: reason
+      })
+   }
+
+   /**
+    * Best-effort WhatsApp server-side unlink + socket teardown. Detach
+    * connection.update before logout() so the resulting close can't re-enter
+    * handleConnectionClose and spin up a reconnect; dispose drops the rest.
+    */
+   private async unlinkDevice(): Promise<void> {
       const sock = this.sock
       if (sock) {
          sock.ev.removeAllListeners('connection.update')
          try {
             await sock.logout()
          } catch (error) {
-            log.warn(error, 'logout() failed during disconnect; wiping auth anyway')
+            log.warn(error, 'logout() failed during unlink; disposing socket anyway')
          }
       }
 
-      await this.wipeAndIdle(reason)
+      this.disposeCurrentSocket()
    }
 
    /**

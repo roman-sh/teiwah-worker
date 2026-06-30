@@ -66,7 +66,9 @@ export class InboundWebhookService {
             },
             'Received message'
          )
-         await this.deliver(webhookUrl, webhookMessage, msg)
+         // Fire-and-forget: don't wait for the customer webhook (e.g. n8n may run
+         // the full automation before HTTP 200). deliver() logs errors internally.
+         void this.deliver(webhookUrl, webhookMessage, msg)
       }
    }
 
@@ -88,10 +90,10 @@ export class InboundWebhookService {
    }
 
    /**
-    * POST one inbound message to the customer webhook.
+    * POST one inbound message to the customer webhook (fire-and-forget from the
+    * caller's perspective — one attempt, no retries).
     *
-    * Never throws: a failing webhook is logged and swallowed so one bad delivery
-    * doesn't abort the rest of the upsert batch.
+    * Never throws: failures are logged and swallowed.
     *
     * Envelope fields added here (not part of the mapped message):
     * - `sessionId` — lets a shared endpoint fan in multiple sessions.
