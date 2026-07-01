@@ -121,14 +121,14 @@ export class WhatsappService implements OnModuleInit, OnModuleDestroy {
    }
 
    /**
-    * k8s sends SIGTERM when the deployment is deleted (session delete, billing
-    * reconciliation, etc.). Unlink the linked device so the phone does not keep
-    * a ghost entry. Local storage is removed by the PVC delete — no auth wipe
-    * or SSE state update here. `main.ts` enables shutdown hooks.
+    * k8s sends the same SIGTERM for routine rollouts, crashes, and permanent
+    * deletion, so shutdown cannot infer that the user intends to unlink the
+    * device. Close only this process's socket and preserve durable auth. Actual
+    * session deletion explicitly calls POST /disconnect before removing the pod.
     */
    async onModuleDestroy(): Promise<void> {
-      log.info('Pod shutdown — unlinking WhatsApp linked device')
-      await this.unlinkDevice()
+      log.info('Pod shutdown — closing local WhatsApp socket without unlinking')
+      this.disposeCurrentSocket()
    }
 
    /* -------------------------------------------------------------------------- */
