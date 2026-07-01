@@ -73,9 +73,10 @@ export class WhatsappService implements OnModuleInit, OnModuleDestroy {
 
    /**
     * Whether WhatsApp's reachout time-lock (account restriction / 463) is
-    * currently active. Set from the connection.update side-channel; the close
-    * that drops us arrives separately and reads this to report `restricted`
-    * rather than a generic `logged_out`. Reset once we reconnect cleanly.
+    * currently active. Set from the connection.update side-channel; a 401 close
+    * while active is reported as `restricted` rather than generic `logged_out`.
+    * Other closes (notably the normal 408 QR timeout) retain their own meaning.
+    * Reset when WhatsApp reports the lock lifted or we reconnect cleanly.
     */
    private reachoutLockActive = false
 
@@ -425,7 +426,8 @@ export class WhatsappService implements OnModuleInit, OnModuleDestroy {
 
    /**
     * The socket dropped. Two outcomes:
-    *  - definitive dead creds (401/403/500/411, or an active restriction) →
+    *  - definitive dead creds (401/403/500/411, with an active restriction
+    *    refining a 401 to `restricted`) →
     *    reconnecting can't help → wipe + idle for an explicit POST /reconnect.
     *  - anything else (transient drop, network blip, or the normal post-pair
     *    restart 515) → reconnect immediately. A failed attempt just closes again
@@ -443,13 +445,16 @@ export class WhatsappService implements OnModuleInit, OnModuleDestroy {
             ? (DisconnectReason as Record<number, string>)[statusCode]
             : undefined) ?? 'unknown'
 
-      // Dead creds. A reachout time-lock seen just before this close means the
-      // kick is an account restriction (463 → 401 on linked devices); report it
-      // distinctly instead of an indistinguishable `logged_out`. 411 (multidevice
-      // mismatch) maps to `bad_session`.
-      const deadCredsReason = this.reachoutLockActive
-         ? 'restricted'
-         : toSessionDisconnectReason(statusCode)
+      // Dead creds. A reachout time-lock refines only a 401 logout to
+      // `restricted` (463 → 401 on linked devices). The lock is persistent
+      // account state, not a blanket classification for unrelated closes: a
+      // 408 QR timeout while the lock remains active is still transient. 411
+      // (multidevice mismatch) maps to `bad_session`.
+      const mappedDisconnectReason = toSessionDisconnectReason(statusCode)
+      const deadCredsReason =
+         this.reachoutLockActive && mappedDisconnectReason === 'logged_out'
+            ? 'restricted'
+            : mappedDisconnectReason
       if (deadCredsReason) {
          log.warn(
             { statusCode, reason },
@@ -459,13 +464,24 @@ export class WhatsappService implements OnModuleInit, OnModuleDestroy {
          return
       }
 
-      // Transient: reconnect. Only show pairing after a real post-scan restart
-      // (515) — not every reconnect while a QR is already on screen.
+      // Transient: reconnect. A close during the pairing flow must not publish
+      // `disconnected`: that state means user action is required and makes the
+      // dashboard close/disarm its QR modal. Clear the now-stale QR and stay in
+      // the setup flow until the replacement socket emits a fresh one.
+      // A real post-scan restart (515) advances to `authenticating`.
       const isAuthenticating = statusCode === DisconnectReason.restartRequired
+      const isPairingFlow =
+         this.state$.value.status === 'starting' ||
+         this.state$.value.status === 'waiting_qr' ||
+         this.state$.value.status === 'authenticating'
       this.state$.next({
          ...this.state$.value,
-         status: isAuthenticating ? 'authenticating' : 'disconnected',
-         qr: isAuthenticating ? null : this.state$.value.qr,
+         status: isAuthenticating
+            ? 'authenticating'
+            : isPairingFlow
+              ? 'starting'
+              : 'disconnected',
+         qr: isAuthenticating || isPairingFlow ? null : this.state$.value.qr,
          disconnectReason: null
       })
 
