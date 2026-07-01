@@ -1,7 +1,9 @@
 import {
    Body,
    Controller,
+   HttpCode,
    HttpException,
+   HttpStatus,
    Post,
    ServiceUnavailableException,
    UsePipes,
@@ -45,9 +47,12 @@ import { OutboundMessageDto } from './outbound-message.dto.js'
 @Controller()
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class MessagesController {
-   constructor(private readonly outboundMessagesService: OutboundMessagesService) {}
+   constructor(
+      private readonly outboundMessagesService: OutboundMessagesService
+   ) {}
 
    @Post('messages')
+   @HttpCode(HttpStatus.OK)
    /** `@Body() body: OutboundMessageDto` — type here tells ValidationPipe which DTO to use. */
    async sendMessage(@Body() body: OutboundMessageDto) {
       let id: string | undefined

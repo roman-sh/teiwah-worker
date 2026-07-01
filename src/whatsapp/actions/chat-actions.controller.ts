@@ -1,4 +1,12 @@
-import { Body, Controller, Post, UsePipes, ValidationPipe } from '@nestjs/common'
+import {
+   Body,
+   Controller,
+   HttpCode,
+   HttpStatus,
+   Post,
+   UsePipes,
+   ValidationPipe
+} from '@nestjs/common'
 import { ReadReceiptDto, TypingDto } from './chat-actions.dto.js'
 import { ChatActionsService } from './chat-actions.service.js'
 
@@ -25,6 +33,7 @@ export class ChatActionsController {
 
    /** Show the "typing…" indicator in a chat (auto-clears — call before replying). */
    @Post('typing')
+   @HttpCode(HttpStatus.OK)
    async typing(@Body() body: TypingDto) {
       await this.chatActionsService.setTyping(body.chatId)
       return { success: true }
@@ -32,6 +41,7 @@ export class ChatActionsController {
 
    /** Mark a received message read (blue ticks), addressed by its native id. */
    @Post('read')
+   @HttpCode(HttpStatus.OK)
    async read(@Body() body: ReadReceiptDto) {
       await this.chatActionsService.markRead(body.messageId)
       return { success: true }
