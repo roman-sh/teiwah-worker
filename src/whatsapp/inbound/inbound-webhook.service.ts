@@ -48,10 +48,21 @@ export class InboundWebhookService {
          if (webhookMessage.media) {
             // Download URL (GET /media/:id) — present on every media type.
             webhookMessage.media.url = `${MEDIA_BASE_URL}/${webhookMessage.id}`
-            // Voice notes are additionally inlined as base64 (API.md §6.1) so
-            // transcription flows skip the extra round-trip.
-            if (webhookMessage.media.type === 'ptt')
-               webhookMessage.media.base64 = await this.inlinePttBase64(msg)
+            // Voice notes must be delivered with inline base64. A URL-only PTT
+            // would violate the webhook contract and break transcription flows,
+            // so skip this message if the eager download/decrypt fails. Keep the
+            // rest of the Baileys batch moving.
+            if (webhookMessage.media.type === 'ptt') {
+               try {
+                  webhookMessage.media.base64 = await this.inlinePttBase64(msg)
+               } catch (error) {
+                  log.error(
+                     { error, messageId: webhookMessage.id },
+                     'Failed to inline ptt base64; skipping inbound ptt webhook'
+                  )
+                  continue
+               }
+            }
          }
 
          log.info(
@@ -75,18 +86,14 @@ export class InboundWebhookService {
    /**
     * Eagerly download a voice note and return it as base64 (API.md §6.1).
     *
-    * Best-effort: any failure (offline socket, CDN miss) is logged and resolves
-    * to undefined so the message is still delivered — the customer falls back to
-    * the `media.url`. ptt clips are small, so holding one in memory is fine.
+    * The delivered PTT contract requires base64. Failures propagate to the
+    * per-message handler above, which logs and skips that webhook without
+    * aborting the rest of the batch. PTT clips are small, so holding one in
+    * memory is fine.
     */
-   private async inlinePttBase64(msg: WAMessage): Promise<string | undefined> {
-      try {
-         const buffer = await this.mediaService.downloadBuffer(msg)
-         return buffer.toString('base64')
-      } catch (error) {
-         log.warn(error, 'Failed to inline ptt base64; delivering url only')
-         return undefined
-      }
+   private async inlinePttBase64(msg: WAMessage): Promise<string> {
+      const buffer = await this.mediaService.downloadBuffer(msg)
+      return buffer.toString('base64')
    }
 
    /**

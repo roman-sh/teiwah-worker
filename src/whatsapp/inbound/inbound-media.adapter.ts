@@ -22,8 +22,8 @@ export interface InboundMedia {
     * Inline media bytes, base64. Set by the delivery layer (it requires a
     * download), `ptt` only: voice notes are eagerly inlined so transcription
     * flows skip the GET /media round-trip (API.md §6.1). Absent on every other
-    * type, and may be absent on a `ptt` too if the eager download failed (the
-    * `url` remains the fallback).
+    * type. Optional in this intermediate adapter type only because the delivery
+    * layer adds it; a delivered PTT always contains it.
     */
    base64?: string
    /** WhatsApp-provided MIME (e.g. `image/jpeg`, `audio/ogg; codecs=opus`), or null. */
