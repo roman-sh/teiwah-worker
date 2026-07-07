@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { Module, RequestMethod } from '@nestjs/common'
 import { LoggerModule } from 'nestjs-pino'
+import { HealthController } from './health.controller.js'
 import { WhatsappModule } from './whatsapp/whatsapp.module.js'
 
 /** First non-empty value of a header that may arrive as string | string[]. */
@@ -18,7 +19,11 @@ function headerValue(value: string | string[] | undefined): string | undefined {
       LoggerModule.forRoot({
          // SSE stream — long-lived and reconnect-prone; pinoHttp would only log
          // it on close, which is noise with no signal.
-         exclude: [{ method: RequestMethod.ALL, path: 'events' }],
+         // Health — kubelet polls readiness frequently; skip request logs.
+         exclude: [
+            { method: RequestMethod.ALL, path: 'events' },
+            { method: RequestMethod.ALL, path: 'health' }
+         ],
          pinoHttp: {
             logger: globalThis.log,
             // Reuse the upstream x-request-id (LOGGING.md §5) or mint one, and
@@ -32,6 +37,7 @@ function headerValue(value: string | string[] | undefined): string | undefined {
          }
       }),
       WhatsappModule
-   ]
+   ],
+   controllers: [HealthController]
 })
 export class AppModule {}
