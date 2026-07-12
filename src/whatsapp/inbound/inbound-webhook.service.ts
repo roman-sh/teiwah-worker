@@ -1,12 +1,22 @@
 import { Injectable } from '@nestjs/common'
 import type { BaileysEventMap, WAMessage } from '@whiskeysockets/baileys'
+import { Subject } from 'rxjs'
 import { MEDIA_BASE_URL } from '../../config.js'
 import { MediaService } from '../media/media.service.js'
 import { ControlAppClient } from '../control/control-app.client.js'
-import { toInboundMessage, type InboundMessage } from './inbound-message.adapter.js'
+import {
+   toInboundMessage,
+   type InboundMessage
+} from './inbound-message.adapter.js'
+
+export type InboundMessageEvent = Pick<
+   InboundMessage,
+   'chatId' | 'contact' | 'timestamp'
+>
 
 /**
- * Forwards inbound WhatsApp messages to the customer's configured webhook URL.
+ * Publishes sanitized inbound-message metadata to SSE and forwards the complete
+ * normalized message to the customer's configured webhook URL.
  *
  * This is not an HTTP controller — nothing hits our worker for inbound messages.
  * Baileys fires messages.upsert → WhatsappService delegates here → we POST to
@@ -19,13 +29,21 @@ import { toInboundMessage, type InboundMessage } from './inbound-message.adapter
  */
 @Injectable()
 export class InboundWebhookService {
+   /**
+    * Sanitized inbound-message notifications shared with the worker SSE stream.
+    * Message content is deliberately excluded; consumers only learn who sent a
+    * message, when it arrived, and which chat can be used for a reply.
+    */
+   readonly inboundMessages$ = new Subject<InboundMessageEvent>()
+
    constructor(
       private readonly controlAppClient: ControlAppClient,
       private readonly mediaService: MediaService
    ) {}
 
    /**
-    * Handle a Baileys messages.upsert batch and forward each eligible message.
+    * Handle a Baileys messages.upsert batch, publish metadata for each eligible
+    * message, and forward the complete normalized messages when a webhook exists.
     *
     * Only `type === 'notify'` is forwarded: that's live, real-time delivery.
     * Other types (history sync, append, etc.) are not customer-facing inbound.
@@ -37,11 +55,15 @@ export class InboundWebhookService {
       if (type !== 'notify') return
 
       const webhookUrl = await this.controlAppClient.getWebhookUrl()
-      if (!webhookUrl) return
 
       for (const msg of messages) {
          const webhookMessage = toInboundMessage(msg)
          if (!webhookMessage) continue
+
+         const { chatId, contact, timestamp } = webhookMessage
+         this.inboundMessages$.next({ chatId, contact, timestamp })
+
+         if (!webhookUrl) continue
 
          // Enrich media with delivery-layer fields the pure adapter omits.
          // Keyed by the native message id.

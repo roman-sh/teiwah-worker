@@ -1,19 +1,22 @@
 import { Controller, Sse, type MessageEvent } from '@nestjs/common'
 import { interval, map, merge, Observable } from 'rxjs'
-import { SessionState } from './session-state.js'
+import { InboundWebhookService } from '../inbound/inbound-webhook.service.js'
 import { WhatsappService } from './whatsapp.service.js'
 
 const SSE_KEEPALIVE_MS = 20_000
 
 /**
- * SSE stream for session status and QR code.
+ * SSE stream for session state, keepalives, and inbound-message metadata.
  *
  * Dashboard connects via Traefik:
  *   GET http://localhost:8080/sessions/:sessionId/events
  */
 @Controller()
 export class EventsController {
-   constructor(private readonly whatsappService: WhatsappService) {}
+   constructor(
+      private readonly whatsappService: WhatsappService,
+      private readonly inboundWebhookService: InboundWebhookService
+   ) {}
 
    @Sse('events')
    streamEvents(): Observable<MessageEvent> {
@@ -31,6 +34,16 @@ export class EventsController {
          )
       )
 
-      return merge(stateEvents$, keepaliveEvents$)
+      const inboundMessageEvents$ =
+         this.inboundWebhookService.inboundMessages$.pipe(
+            map(
+               (message): MessageEvent => ({
+                  type: 'inbound_message',
+                  data: message
+               })
+            )
+         )
+
+      return merge(stateEvents$, keepaliveEvents$, inboundMessageEvents$)
    }
 }
